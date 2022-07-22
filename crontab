@@ -1,5 +1,7 @@
-@reboot /STORAGE/statusLight/getSetting
+reboot /STORAGE/statusLight/getSetting
 @daily /usr/bin/killall && /STORAGE/statusLight/getSetting &
 
 0 4 * * * /STORAGE/statusLight/blueLight.py
 0 7 * * * /STORAGE/statusLight/noLight.py
+
+* * * * * date >> /root/throttle.log ;vcgencmd get_throttled >> /root/throttle.log ;echo ======================= >> /root/throttle.log
