@@ -1,0 +1,5 @@
+@reboot /STORAGE/statusLight/getSetting
+@daily /usr/bin/killall && /STORAGE/statusLight/getSetting &
+
+0 4 * * * /STORAGE/statusLight/blueLight.py
+0 7 * * * /STORAGE/statusLight/noLight.py

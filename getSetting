@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+################################################################################
+use LWP;
+use Data::Dumper;
+################################################################################
+$scriptPath = "/STORAGE/statusLight";
+$statusURL = "https://status.ziemba.net/GET/";
+$pidof = "/usr/bin/pidof";
+$grep = "/usr/bin/grep";
+$kill = "/usr/bin/kill";
+################################################################################
+my $name = $0;
+my $pid = $$;
+my $pidCMD = "$pidof -o $pid -c -x $name";
+my $pidData = `$pidCMD`; chomp $pidData;
+if ($pidData) { exit; }
+################################################################################
+do
+{
+    $funcChange = 0;
+    ($red,$green,$blue,$pulse,$bright) = &pullStatus;
+    if ($funcChange)
+    {
+        &findActiveFuncs;
+    }
+    ##########
+    if ($red eq "rainbow")
+    {
+        # print "\t** RAINBOW :: $bright\n";
+        $runCMD = $scriptPath . "/rainbow.py &";
+    }
+    elsif ($red eq "redcross")
+    {
+        # print "\t** RedCross :: $bright\n";
+        $runCMD = $scriptPath . "/redcross.py &";
+    }
+    elsif ($red eq "sparkles")
+    {
+        # print "\t** SPARKLES :: $bright\n";
+        $runCMD = $scriptPath . "/sparkles.py &";
+    }
+    else
+    {
+        if (($red == 0) && ($green == 0) && ($blue == 0))
+        {
+            # print "\t** OFF\n";
+            $runCMD = $scriptPath . "/noLight.py &";
+        }
+        else
+        {
+            # print "\t** COLOR :: $red / $green / $blue :: $bright :: $pulse\n";
+            $runCMD = $scriptPath . "/doColor.py $red $green $blue $bright $pulse &";
+        }
+    }
+    if ($funcChange)
+    {
+        # print "CMD :: $runCMD\n";
+        system ($runCMD);
+    }
+    else
+    {
+        # print "** NO CHANGE **\n";
+    }
+    ##########
+    sleep (5);
+} while true;
+################################################################################
+sub findActiveFuncs
+{
+    my $findCMD = "ps -elf |$grep -i /STORAGE/statusLight |$grep -v grep |$grep -v getSetting";
+    my $findData = `$findCMD`; chomp $findData;
+    $findData =~ s/\s+/:/g;
+    my @findPts = split(":", $findData);
+    my $findPid = $findPts[3];
+    my $findActive = $findPts[$#findPts];
+    ######
+    # print "Killing :: $findActive\n";
+    #####
+    if ($findPid)
+    {
+        `$kill $findPid`;
+    }
+}
+################################################################################
+sub pullStatus
+{
+    $oldStatus = "";
+    if (-e "$scriptPath/oldStatus.txt")
+    {
+        open (IN, "$scriptPath/oldStatus.txt");
+        while (<IN>)
+        {
+            $oldStatus = $_;
+        }
+        close (IN);
+    }
+    ########################################
+    $browser = LWP::UserAgent->new(verify_hostname => 0);
+	$browser->agent('Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; InfoPath.1; .NET CLR 2.0.50727)');
+	$request = HTTP::Request->new('GET', $statusURL);
+	$request->header('Connection' => 'keep-alive');
+	$response = $browser->request($request)->{"_content"};
+	########################################
+    $response =~ s/"//g;
+    ########################################
+    if ($oldStatus ne $response)
+    {
+        $funcChange = 1;
+    }
+    ########################################
+    open (OUT, ">$scriptPath/oldStatus.txt");
+    print OUT $response;
+    close (OUT);
+    ########################################
+    my ($settings, $bright) = split(":", $response);
+    my ($red,$green,$blue,$pulse) = split(",", $settings);
+    # print "RESPONSE :: ($oldStatus) $response :: $red - $green - $blue - $pulse - $bright\n";
+    ########################################
+    return ($red,$green,$blue,$pulse,$bright);
+}
